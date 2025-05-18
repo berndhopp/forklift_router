@@ -18,8 +18,8 @@ public abstract class AbstractForklift {
   private final long loadOrUnloadTime;
   private final long minDistanceBetweenForklifts;
   private final long squaredMinDistanceBetweenForkLifts;
-  private int currentDestinationIndex = -1;
   protected long arrivalTimeAtCurrentRoutePoint = -1;
+  private int currentDestinationIndex = -1;
   private boolean moveForward = true;
 
   public AbstractForklift(

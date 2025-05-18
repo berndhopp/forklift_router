@@ -11,14 +11,11 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.context.ApplicationContext;
 
-public abstract class VirtualForkliftBase extends AbstractForklift {
+public abstract class SimulatedForklift extends AbstractForklift {
   @Getter private final Color color;
   private final ApplicationContext applicationContext;
-
-  @Getter @Setter private Image image;
-
   @Getter private final Set<Reservation> myReservations = new HashSet<>();
-
+  @Getter @Setter private Image image;
   @Getter @Setter private Location location;
 
   @Getter @Setter private double maxSpeed;
@@ -26,7 +23,7 @@ public abstract class VirtualForkliftBase extends AbstractForklift {
 
   @Getter @Setter private double orientation;
 
-  public VirtualForkliftBase(
+  public SimulatedForklift(
       Color color, Location location, ApplicationContext applicationContext, List<Location> route) {
     super(
         route,
@@ -48,8 +45,8 @@ public abstract class VirtualForkliftBase extends AbstractForklift {
   }
 
   @Override
-  protected List<VirtualForkliftBase> getOtherInstances() {
-    return applicationContext.getBeansOfType(VirtualForkliftBase.class).values().stream()
+  protected List<SimulatedForklift> getOtherInstances() {
+    return applicationContext.getBeansOfType(SimulatedForklift.class).values().stream()
         .filter(i -> !i.equals(this))
         .toList();
   }

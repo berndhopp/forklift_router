@@ -10,10 +10,10 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class PhysicsEngine {
-  private final List<VirtualForkliftBase> forklifts;
+  private final List<SimulatedForklift> forklifts;
   private long lastUpdate = 0;
 
-  public PhysicsEngine(java.util.List<VirtualForkliftBase> virtualForkliftList) {
+  public PhysicsEngine(java.util.List<SimulatedForklift> virtualForkliftList) {
     this.forklifts = virtualForkliftList;
   }
 
