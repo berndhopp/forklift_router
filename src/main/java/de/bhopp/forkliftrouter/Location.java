@@ -1,4 +1,4 @@
-package de.bhopp.forkliftrouter.domain;
+package de.bhopp.forkliftrouter;
 
 import static java.lang.Math.atan2;
 import static java.lang.Math.sqrt;

@@ -3,53 +3,31 @@ package de.bhopp.forkliftrouter;
 import static java.lang.Math.cos;
 import static java.util.Comparator.comparingDouble;
 
-import de.bhopp.forkliftrouter.domain.Location;
 import java.util.List;
 import lombok.Data;
 import lombok.NonNull;
 
 @Data
-public abstract class AbstractForklift {
+public class ForkliftController<FORKLIFT extends IForklift<FORKLIFT>> {
 
   private final List<Location> route;
   private final long minDistanceBetweenForklifts;
   private final long stationEntryDistance;
+  private final FORKLIFT forklift;
   private int currentDestinationIndex = -1;
   private boolean moveForward = true;
-  protected final double maxSpeed;
-  protected final double acceleration;
 
-  public AbstractForklift(
+  public ForkliftController(
       @NonNull List<@NonNull Location> routePoints,
       long minDistanceBetweenForklifts,
       long stationEntryDistance,
-      double maxSpeed,
-      double acceleration) {
+      @NonNull FORKLIFT forklift) {
+    this.forklift = forklift;
     if (routePoints.isEmpty()) throw new IllegalArgumentException("Route points can't be empty");
     this.stationEntryDistance = stationEntryDistance;
     this.minDistanceBetweenForklifts = minDistanceBetweenForklifts;
-    this.maxSpeed = maxSpeed;
-    this.acceleration = acceleration;
     this.route = routePoints;
   }
-
-  public abstract Location getLocation();
-
-  public abstract double getCurrentSpeed();
-
-  public abstract float loadOrUnloadProgress();
-
-  protected abstract double getOrientation();
-
-  protected abstract void setOrientation(double destinationAngle);
-
-  protected abstract long getTimeMillis();
-
-  protected abstract void go();
-
-  protected abstract void stop();
-
-  protected abstract List<? extends AbstractForklift> getOtherInstances();
 
   protected Location nextStop() {
     return getCurrentTarget();
@@ -61,13 +39,13 @@ public abstract class AbstractForklift {
     }
 
     final var targetLocation = getCurrentTarget();
-    final var distance = this.getLocation().distanceTo(targetLocation);
+    final var distance = forklift.getLocation().distanceTo(targetLocation);
 
     if (distance == 0) {
       handleLoadingOrUnloading();
     } else if (distance <= stationEntryDistance) {
       handleStationEntry();
-    } else if (getCurrentSpeed() != 0) {
+    } else if (forklift.getCurrentSpeed() != 0) {
       handleMoving();
     } else {
       handleNotMoving();
@@ -75,14 +53,15 @@ public abstract class AbstractForklift {
   }
 
   private void handleMoving() {
-    record OtherForkliftAndDistance(AbstractForklift forklift, double distance) {}
+    record OtherForkliftAndDistance(IForklift<?> forklift, double distance) {}
 
-    getOtherInstances().stream()
+    forklift.getOtherInstancesCloserThan30Meters().stream()
         .filter(other -> other.getCurrentSpeed() > 0)
         .map(
             other ->
                 new OtherForkliftAndDistance(
-                    other, other.getLocation().distanceTo(this.getLocation())))
+                    other,
+                    other.getLocation().distanceTo(this.forklift.getLocation())))
         .min(comparingDouble(OtherForkliftAndDistance::distance))
         .filter(
             closestOtherAndDistance ->
@@ -90,44 +69,46 @@ public abstract class AbstractForklift {
         .ifPresent(
             closestOther -> {
               final var mySpeedTowardsOther =
-                  calculateSpeedTowards(closestOther.forklift.getLocation());
+                  calculateSpeedTowards(forklift, closestOther.forklift.getLocation());
 
               if (mySpeedTowardsOther < 0) {
-                go();
+                forklift.go();
               } else {
                 final var otherSpeedTowardsMe =
-                    closestOther.forklift.calculateSpeedTowards(getLocation());
+                    calculateSpeedTowards(closestOther.forklift(), forklift.getLocation());
                 if (mySpeedTowardsOther > otherSpeedTowardsMe) {
-                  stop();
+                  forklift.stop();
                 }
               }
             });
   }
 
   private void handleNotMoving() {
-    getOtherInstances().stream()
-        .filter(i -> i != this)
+    forklift.getOtherInstancesCloserThan30Meters().stream()
         .filter(i -> i.getCurrentSpeed() > 0)
-        .mapToDouble(i -> i.getLocation().distanceTo(this.getLocation()))
+        .mapToDouble(i -> i.getLocation().distanceTo(this.forklift.getLocation()))
         .min()
         .ifPresentOrElse(
             closestDistance -> {
               if (closestDistance >= minDistanceBetweenForklifts) {
-                go();
+                forklift.go();
               }
             },
-            this::go);
+            forklift::go);
   }
 
   private void handleStationEntry() {
-    final var meIsTheClosestForkliftToTargetStation = getOtherInstances()
-            .stream()
-            .noneMatch(other -> other.getLocation().distanceTo(getCurrentTarget()) <= getLocation().distanceTo(getCurrentTarget()));
+    final var meIsTheClosestForkliftToTargetStation =
+            forklift.getOtherInstancesCloserThan30Meters().stream()
+            .noneMatch(
+                other ->
+                        other.getLocation().distanceTo(getCurrentTarget())
+                        <= forklift.getLocation().distanceTo(getCurrentTarget()));
 
     if (meIsTheClosestForkliftToTargetStation) {
-      go();
+      forklift.go();
     } else {
-      stop();
+      forklift.stop();
     }
   }
 
@@ -136,18 +117,18 @@ public abstract class AbstractForklift {
   }
 
   private void handleLoadingOrUnloading() {
-    if (loadOrUnloadProgress() == 1) {
+    if (forklift.loadOrUnloadProgress() == 1) {
       moveToNextRoutePoint();
     } else {
-      stop();
+      forklift.stop();
     }
   }
 
-  private double calculateSpeedTowards(Location target) {
-    final var angleDifference = getOrientation() - getLocation().angleTo(target);
+  private double calculateSpeedTowards(IForklift<?> forklift, Location target) {
+    final var angleDifference = forklift.getOrientation() - forklift.getLocation().angleTo(target);
     final var speedProjection = cos(angleDifference);
 
-    return getCurrentSpeed() * speedProjection;
+    return forklift.getCurrentSpeed() * speedProjection;
   }
 
   protected void onBeforeMoveToNextRoutePoint() {}
@@ -158,8 +139,8 @@ public abstract class AbstractForklift {
     if (currentDestinationIndex == -1) {
       final var closestLocation =
           route.stream()
-              .filter(l -> !l.equals(getLocation()))
-              .min(comparingDouble(i -> i.distanceTo(getLocation())))
+              .filter(l -> !l.equals(forklift.getLocation()))
+              .min(comparingDouble(i -> i.distanceTo(forklift.getLocation())))
               .orElseThrow();
 
       currentDestinationIndex = route.indexOf(closestLocation);
@@ -177,13 +158,13 @@ public abstract class AbstractForklift {
 
     orientTowardsTarget();
 
-    go();
+    forklift.go();
   }
 
   private void orientTowardsTarget() {
     final var destination = nextStop();
-    final var angleToDestination = getLocation().angleTo(destination);
+    final var angleToDestination = forklift.getLocation().angleTo(destination);
 
-    setOrientation(angleToDestination);
+    forklift.setOrientation(angleToDestination);
   }
 }
