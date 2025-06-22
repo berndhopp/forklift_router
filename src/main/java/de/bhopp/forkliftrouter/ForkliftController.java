@@ -55,7 +55,7 @@ public class ForkliftController<FORKLIFT extends IForklift<FORKLIFT>> {
   private void handleMoving() {
     record OtherForkliftAndDistance(IForklift<?> forklift, double distance) {}
 
-    forklift.getOtherInstances().stream()
+    forklift.getOtherInstances(30).stream()
         .filter(other -> other.getCurrentSpeed() > 0)
         .map(
             other ->
@@ -84,7 +84,7 @@ public class ForkliftController<FORKLIFT extends IForklift<FORKLIFT>> {
   }
 
   private void handleNotMoving() {
-    forklift.getOtherInstances().stream()
+    forklift.getOtherInstances(30).stream()
         .filter(i -> i.getCurrentSpeed() > 0)
         .mapToDouble(i -> i.getLocation().distanceTo(this.forklift.getLocation()))
         .min()
@@ -99,7 +99,7 @@ public class ForkliftController<FORKLIFT extends IForklift<FORKLIFT>> {
 
   private void handleStationEntry() {
     final var meIsTheClosestForkliftToTargetStation =
-            forklift.getOtherInstances().stream()
+            forklift.getOtherInstances(30).stream()
             .noneMatch(
                 other ->
                         other.getLocation().distanceTo(getCurrentTarget())
