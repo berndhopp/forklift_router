@@ -30,10 +30,10 @@ public class VirtualForklift implements IForklift<VirtualForklift> {
 
   public VirtualForklift(Color color, ApplicationContext applicationContext) {
     this.color = color;
-    this.maximumSpeed = 100;
-    this.acceleration = 100;
+    this.maximumSpeed = 3;
+    this.acceleration = 3;
     this.applicationContext = applicationContext;
-    this.loadOrUnloadMillis = 120;
+    this.loadOrUnloadMillis = 120000;
   }
 
   @Override
